@@ -1,0 +1,32 @@
+{
+  "name": "auth-service",
+  "version": "1.0.0",
+  "description": "",
+  "license": "ISC",
+  "author": "Roma Yarmolenko",
+  "type": "commonjs",
+  "main": "src/server.ts",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "nodemon src/server.ts"
+  },
+  "dependencies": {
+    "argon2": "^0.43.0",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.5",
+    "dotenv": "^16.5.0",
+    "express": "^5.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^8.16.0",
+    "zod": "^3.25.67"
+  },
+  "devDependencies": {
+    "@types/cookie-parser": "^1.4.9",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.3",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/mongoose": "^5.11.96",
+    "@types/node": "^24.0.3",
+    "nodemon": "^3.1.10"
+  }
+}
