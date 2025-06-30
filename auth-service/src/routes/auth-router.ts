@@ -1,4 +1,4 @@
-import express, { Router, Request, Response } from 'express';
+import express, { Router } from 'express';
 import { loginUser, logoutUser, refreshTokens, registerUser } from '../controllers/auth-controller';
 
 const router: Router = express.Router();

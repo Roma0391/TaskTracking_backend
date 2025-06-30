@@ -7,21 +7,37 @@ const RegisterSchema = z.object({
 		role: z.enum(['user', 'admin']),
 });
 
-type RegisterType = z.infer<typeof RegisterSchema>;
-
 const LoginSchema = z.object({
 	email: z.email({message: 'Please, enter real email'}),
 	password: z.string().min(6, {message: 'Password should be at least 6 char'}),
 })
 
-type LoginType = z.infer<typeof LoginSchema>;
+const LogoutSchema = z.object({
+	refreshToken: z.string()
+})
 
-const registerValidation = (data: RegisterType) => {
+const RefreshTokenSchema = z.object({
+	refreshToken: z.string()
+})
+
+type RegisterDataType = z.infer<typeof RegisterSchema>;
+type LoginDataType = z.infer<typeof LoginSchema>;
+type LogoutDataType = z.infer<typeof LogoutSchema>;
+type RefreshTokenDataType = z.infer<typeof RefreshTokenSchema>;
+
+
+export const registerValidation = (data: RegisterDataType) => {
 	return RegisterSchema.parse(data);
 }
 
-const loginValidation = (data: LoginType) => {
+export const loginValidation = (data: LoginDataType) => {
 	return LoginSchema.parse(data);
 }
 
-export {registerValidation, loginValidation};
+export const logoutValidation = (data: LogoutDataType) => {
+	return LogoutSchema.parse(data)
+}
+
+export const refreshTokenValidation = (data: RefreshTokenDataType) => {
+	return RefreshTokenSchema.parse(data)
+}

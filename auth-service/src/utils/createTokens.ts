@@ -1,18 +1,19 @@
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import RefreshToken from '../db/refreshTokenModel';
+import { IUserFromDB } from '../db/userModel';
 
-type User = {
-	_id: string,
-	role: "user" | "admin"
+interface ICreatedTokens {
+	accessToken: string,
+	refreshToken: string
 }
 
-const createTokens = async (user: User) => {
+const createTokens = async (user: IUserFromDB): Promise<ICreatedTokens> => {
 	const jwtBody = {
 		user_id: user._id,
 		user_role: user.role,
 	}
-	const accessToken = await jwt.sign(jwtBody, process.env.JWT_SECRET as string, {expiresIn: '15m'});
+	const accessToken = jwt.sign(jwtBody, process.env.JWT_SECRET as string, {expiresIn: '55m'});
 	const refreshToken = crypto.randomBytes(40).toString("hex");
 	const expiresAt = new Date();
 

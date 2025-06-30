@@ -1,39 +1,49 @@
-import { Request, RequestHandler, Response } from 'express';
-import User from '../db/userModel';
-import { loginValidation, registerValidation } from '../utils/validation'
+import { Request, Response } from 'express';
+import User, { IUserFromDB } from '../db/userModel';
+import { loginValidation, logoutValidation, refreshTokenValidation, registerValidation } from '../utils/validation'
 import createTokens from '../utils/createTokens';
-import { success } from 'zod/v4';
-import { log } from 'console';
-import RefreshToken from '../db/refreshTokenModel';
+import RefreshToken, { IRefreshTokenFromDb } from '../db/refreshTokenModel';
 
+interface IUser {
+	user_id: string,
+	user_role: string,
+}
+ 
+export interface IAuthRequest extends Request {
+	user?: IUser
+}
 
-const registerUser = async (req: Request, res: Response) => {
-	try{
+const registerUser = async (req: IAuthRequest, res: Response) => {
+	try{ 		
 		const parsedData = registerValidation(req.body);
-		const existingUser = await User.findOne({email: parsedData.email})
+
+		const existingUser: IUserFromDB | null = await User.findOne({email: parsedData.email});
 		if(existingUser) {
-			res.status(401).json({
+		    res.status(401).json({
 				success: false,
 				message: 'User olready exists'
-			})
+			}) 
+			return;
 		}
-		const newUser = await User.create(parsedData);
-		const {accessToken, refreshToken} = await createTokens(newUser);
-
-		if(newUser){
+		const newUser: IUserFromDB = await User.create(parsedData);
 		
+		const {accessToken, refreshToken} = await createTokens(newUser);
+		if(newUser){
 			res.status(201).json({
 				success: true,
 				message: 'User created successfuly',
-				data: newUser,
+				data: {
+					id: newUser._id,
+					name: newUser.name,
+				},
 				accessToken,
 				refreshToken,
 			})
 		}
-	}catch(error){
+	}catch(error){		
 		res.status(500).json({
 			success: false,
-			message: 'Internal server error occured'
+			message: 'Auth service register user error occured'
 		})
 	}
 }
@@ -41,17 +51,15 @@ const registerUser = async (req: Request, res: Response) => {
 const loginUser = async (req: Request, res: Response) => {
 	try{
 		const parsedData = loginValidation(req.body);
-		
-		const existedUser = await User.findOne({email: parsedData.email});
-
+		const existedUser: IUserFromDB | null = await User.findOne({email: parsedData.email});
 		if(!existedUser) {
 			res.status(404).json({
 				success: false,
 				message: 'User not found'
 			})
+			return;
 		};
-		
-		const isPasswordMatch = await existedUser.comparePassword(parsedData.password);
+		const isPasswordMatch: boolean = existedUser!.comparePassword(parsedData.password);
 
 		if(!isPasswordMatch) {
 			res.status(401).json({
@@ -59,25 +67,28 @@ const loginUser = async (req: Request, res: Response) => {
 				message: 'Invalid password'
 			})
 		}
-		const {refreshToken, accessToken} = await createTokens(existedUser);
+		const {refreshToken, accessToken} = await createTokens(existedUser!);
 		res.status(200).json({
 			success: true,
 			message: 'User logined successfully',
-			data: existedUser,
+			data: {
+				id: existedUser?._id,
+				name: existedUser?.name,
+			},
 			refreshToken,
 			accessToken,
 		})
 	}catch(error){
 		res.status(500).json({
 			success: false,
-			message: 'Internal server error occured'
+			message: 'Auth service login error occured'
 		})
 	}
 } 
 
 const logoutUser = async (req: Request, res: Response) => {
 	try{
-		const {refreshToken} = req.body;
+		const {refreshToken} = logoutValidation(req.body);
 		if(!refreshToken){
 			res.status(400).json({
 				success: false,
@@ -87,41 +98,41 @@ const logoutUser = async (req: Request, res: Response) => {
 		await RefreshToken.deleteOne({token: refreshToken});
 		res.status(200).json({
 			success: true,
-			message: 'logged out successfully'
+			message: 'Logged out successfully'
 		})
 	}catch(error){
 		res.status(500).json({
 			success: false,
-			message: 'Internal server error occured'
+			message: 'Auth service logout error occured'
 		})
 	}
 }
 
 const refreshTokens = async (req: Request, res: Response) => {
 	try{
-		const {refreshToken} = req.body;
+		const {refreshToken} = refreshTokenValidation(req.body);
 		if(!refreshToken) {
 			res.status(400).json({
 				success: false,
 				message: 'Refresh token missing'
 			})
 		}
-		const storedToken = await RefreshToken.findOne({token: refreshToken});
+		const storedToken: IRefreshTokenFromDb | null = await RefreshToken.findOne({token: refreshToken});
 		if(!storedToken || storedToken.expiresAt < new Date()) {
 			res.status(400).json({
 				success: false,
 				message: 'Invalide refresh token on expires data ended'
 			})
 		}
-		const user = await User.findById(storedToken.user);
+		const user: IUserFromDB | null = await User.findById(storedToken!.user);
 		if(!user) {
 			res.status(401).json({
 				success: false,
 				message: 'User not found'
 			})
 		}
-		const {accessToken: newAccessToken, refreshToken: newRefreshToken} = await createTokens(user);
-		await RefreshToken.deleteOne({id: storedToken._id});
+		const {accessToken: newAccessToken, refreshToken: newRefreshToken} = await createTokens(user!);
+		await RefreshToken.deleteOne({id: storedToken!._id});
 		res.status(200).json({
 			success: true,
 			message: 'Tokens updated successfully',
@@ -131,7 +142,7 @@ const refreshTokens = async (req: Request, res: Response) => {
 	}catch(error){
 		res.status(500).json({
 			success: false,
-			message: 'Internal server error occured'
+			message: 'Auth service refresh tokens error occured'
 		})
 	}
 }

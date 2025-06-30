@@ -1,6 +1,19 @@
 import mongoose from 'mongoose';
+import { IUserFromDB } from './userModel';
 
-const RefreshTokenSchema = new mongoose.Schema({
+interface IRefreshToken {
+	token: string,
+	user: IUserFromDB,
+	expiresAt: Date
+}
+
+export interface IRefreshTokenFromDb extends IRefreshToken {
+	_id: string,
+	createdAt: Date,
+	updatedAt: Date,
+}
+
+const RefreshTokenSchema = new mongoose.Schema<IRefreshToken>({
 	token: {
 		type: String,
 		require: true,
