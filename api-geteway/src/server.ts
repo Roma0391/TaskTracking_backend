@@ -2,15 +2,12 @@ import dotenv from 'dotenv'
 import express from 'express';
 import cors from 'cors'
 import proxy, { ProxyOptions } from 'express-http-proxy'
-import cookieParser from 'cookie-parser';
-import validateToken, { IAuthRequest } from './middlewares/auth-middleware';
+import validateToken, { IRequestWithUser } from './middlewares/auth-middleware';
 import { RequestOptions } from 'https';
 
 dotenv.config();
 
 const app = express();
-
-app.use(cookieParser());
 app.use(express.json());
 app.use(cors());
 
@@ -37,15 +34,14 @@ interface IRequestOptions extends RequestOptions {
 }
 app.use(
   `/api-geteway/auth`,
-  // validateToken,
+  validateToken,
   proxy(process.env.AUTH_SERVICE_HOST as string, {
     ...proxyOptions,
-    proxyReqOptDecorator: (proxyReqOpts: IRequestOptions, srcReq: IAuthRequest) => {
+    proxyReqOptDecorator: (proxyReqOpts: IRequestOptions, srcReq: IRequestWithUser) => {
       if(proxyReqOpts.headers && srcReq.user?.user_id) {
         proxyReqOpts.headers = {
           ...proxyReqOpts.headers,
-          "Content-type": "application/json",
-          "x-user-id": srcReq.user?.user_id ,
+          "x-user-id": srcReq.user?.user_id,
           "x-user-role": srcReq.user?.user_role
         }
       }     
@@ -54,6 +50,7 @@ app.use(
     userResDecorator: (proxyRes, proxyResData, userReq, userRes) => {
       return proxyResData;
     },
+    
   }),
 );
 

@@ -1,7 +1,8 @@
 import {z} from 'zod/v4';
 
 const RegisterSchema = z.object({
-		name: z.string().min(2, {message: 'name should be at least 2 char'}),
+		firstName: z.string().min(2, {message: 'name should be at least 2 char'}),
+		lastName: z.string().min(2, {message: 'Last name should be at least 2 char'}),
 		email: z.email({message: 'Please, enter real email'}),
 		password: z.string().min(6, {message: 'Password should be at least 6 char'}),
 		role: z.enum(['user', 'admin']),

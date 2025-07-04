@@ -16,7 +16,6 @@ export interface IAuthRequest extends Request {
 const registerUser = async (req: IAuthRequest, res: Response) => {
 	try{ 		
 		const parsedData = registerValidation(req.body);
-
 		const existingUser: IUserFromDB | null = await User.findOne({email: parsedData.email});
 		if(existingUser) {
 		    res.status(401).json({
@@ -24,9 +23,8 @@ const registerUser = async (req: IAuthRequest, res: Response) => {
 				message: 'User olready exists'
 			}) 
 			return;
-		}
+		} 
 		const newUser: IUserFromDB = await User.create(parsedData);
-		
 		const {accessToken, refreshToken} = await createTokens(newUser);
 		if(newUser){
 			res.status(201).json({
@@ -34,7 +32,8 @@ const registerUser = async (req: IAuthRequest, res: Response) => {
 				message: 'User created successfuly',
 				data: {
 					id: newUser._id,
-					name: newUser.name,
+					role: newUser.role,
+					hasProfile: newUser.hasProfile,
 				},
 				accessToken,
 				refreshToken,
@@ -50,6 +49,8 @@ const registerUser = async (req: IAuthRequest, res: Response) => {
 
 const loginUser = async (req: Request, res: Response) => {
 	try{
+		console.log('Login user controller called');
+		
 		const parsedData = loginValidation(req.body);
 		const existedUser: IUserFromDB | null = await User.findOne({email: parsedData.email});
 		if(!existedUser) {
@@ -66,14 +67,16 @@ const loginUser = async (req: Request, res: Response) => {
 				success: false,
 				message: 'Invalid password'
 			})
+			return;
 		}
 		const {refreshToken, accessToken} = await createTokens(existedUser!);
 		res.status(200).json({
 			success: true,
 			message: 'User logined successfully',
 			data: {
-				id: existedUser?._id,
-				name: existedUser?.name,
+				id: existedUser._id,
+				role: existedUser.role,
+				hasProfile: existedUser.hasProfile,
 			},
 			refreshToken,
 			accessToken,
@@ -110,7 +113,7 @@ const logoutUser = async (req: Request, res: Response) => {
 
 const refreshTokens = async (req: Request, res: Response) => {
 	try{
-		const {refreshToken} = refreshTokenValidation(req.body);
+		const refreshToken = req.headers.authorization?.split(' ')[1] || null;
 		if(!refreshToken) {
 			res.status(400).json({
 				success: false,
@@ -125,6 +128,7 @@ const refreshTokens = async (req: Request, res: Response) => {
 			})
 		}
 		const user: IUserFromDB | null = await User.findById(storedToken!.user);
+		
 		if(!user) {
 			res.status(401).json({
 				success: false,
@@ -147,4 +151,35 @@ const refreshTokens = async (req: Request, res: Response) => {
 	}
 }
 
-export {registerUser, loginUser, logoutUser, refreshTokens};
+const getCurrentUser = async (req: IAuthRequest, res: Response) => {
+	try{
+	const userId = req.headers['x-user-id'];
+		if(!userId) {
+			res.status(401).json({
+				success: false,
+				message: 'User not authenticated'
+			})
+			return;
+		}
+		const user: IUserFromDB | null = await User.findById(userId);
+		if(!user) {
+			res.status(404).json({
+				success: false,
+				message: 'User not found'
+			})
+			return;
+		}
+		res.status(200).json({
+			success: true,
+			message: 'Current user data fetched successfully',
+			data: user,
+		})
+	} catch(error) {
+		res.status(500).json({
+			success: false,
+			message: 'Auth service get current user error occured'
+		})
+	}
+}
+
+export {registerUser, loginUser, logoutUser, refreshTokens, getCurrentUser};

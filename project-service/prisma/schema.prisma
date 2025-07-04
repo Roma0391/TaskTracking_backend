@@ -1,0 +1,86 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+  
+model Profile {
+  id                  String   @id @default(cuid())
+  userId              String   @unique
+  firstName           String
+  lastName            String
+  email               String   @unique
+  role                String   @default("USER")
+  permissions         String[] @default([])
+  createdProjects     Project[]
+  memberOfProjects    UsersToProjects[]
+  tasks               UsersToTasks[]
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}
+
+model Project {
+  id                  String   @id @default(cuid())
+  name                String
+  description         String?
+  createdBy           String @unique
+  admin               Profile  @relation(fields: [createdBy], references: [id])
+  members             UsersToProjects[]
+  tasks               Task[]
+  status              String   @default("ACTIVE")
+  startDate           DateTime?
+  priorityLavel       String   @default("MEDIUM")
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}
+
+model UsersToProjects {
+  project     Project @relation(fields: [projectId], references: [id])
+  projectId   String // relation scalar field (used in the `@relation` attribute above)
+  profile     Profile @relation(fields: [profileId], references: [id])
+  profileId   String // relation scalar field (used in the `@relation` attribute above)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@id([projectId, profileId])
+}
+
+model Task {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  projectId   String
+  project     Project  @relation(fields: [projectId], references: [id])
+  deadline    DateTime
+  subtasks    Task[]   @relation("Subtasks")
+  parentTask  Task?    @relation("Subtasks", fields: [parentTaskId], references: [id])
+  parentTaskId String?
+  users       UsersToTasks[]
+  progress    Int      @default(0)
+  estimatedTime Int    @default(0) // in minutes
+  spentTime   Int      @default(0) // in minutes 
+  status      String   @default("TODO") // TODO, IN_PROGRESS, DONE
+  priorityLevel String @default("MEDIUM") // LOW, MEDIUM, HIGH 
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  @@index([projectId])
+}
+
+model UsersToTasks {
+  task        Task @relation(fields: [taskId], references: [id])
+  taskId      String // relation scalar field (used in the `@relation` attribute above)
+  profile     Profile @relation(fields: [profileId], references: [id])
+  profileId   String // relation scalar field (used in the `@relation` attribute above)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  @@id([taskId, profileId])
+}

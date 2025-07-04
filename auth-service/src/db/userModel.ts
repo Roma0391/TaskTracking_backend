@@ -7,10 +7,12 @@ export enum Role {
 }
 
 interface IUser {
-	name: string,
+	firstName: string,
+	lastName: string,
 	email: string,
 	password: string,
 	role: Role,
+	hasProfile: boolean,
 }
 
 export interface IUserFromDB extends IUser {
@@ -21,7 +23,12 @@ export interface IUserFromDB extends IUser {
 }
 
 const UserSchema = new mongoose.Schema<IUser>({
-	name: {
+	firstName: {
+		type: String,
+		required: true,
+		trim: true,
+	},
+	lastName: {
 		type: String,
 		required: true,
 		trim: true,
@@ -40,7 +47,12 @@ const UserSchema = new mongoose.Schema<IUser>({
 	role: {
 		type: String,
 		required: true,
-	}
+	},
+	hasProfile: {
+		type: Boolean,
+		default: false,
+		required: true,
+	},
 }, {timestamps: true});
 
 UserSchema.pre('save', async function(next) {

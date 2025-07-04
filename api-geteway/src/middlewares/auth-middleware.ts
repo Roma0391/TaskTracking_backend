@@ -6,20 +6,24 @@ interface IUserJWTData extends JwtPayload {
 	user_role: string,
 }
 
-export interface IAuthRequest extends Request {
+export interface IRequestWithUser extends Request {
 	user?: IUserJWTData
 }
 
-const validateToken = (req: IAuthRequest, res: Response, next: NextFunction) => {
-	const {accessToken} = req.body;
+const validateToken = async (req: IRequestWithUser, res: Response, next: NextFunction) => {
+	if(req.path === '/register' || req.path === '/refresh-tokens' || req.path === '/login') {
+		next();
+		return;
+	}
+	const accessToken = req.headers.authorization?.split(' ')[1] || null;
 	if(!accessToken) {
 		res.status(401).json({
-				success: false,
-				message: 'Access token missing'
+			success: false,
+			message: 'Access token missing'
 		})
 		return;
 	}
-	try{
+	try {
 		const user = jwt.verify(accessToken, process.env.JWT_SECRET as string) as IUserJWTData;
 		req.user = user;
 		next();
@@ -28,6 +32,7 @@ const validateToken = (req: IAuthRequest, res: Response, next: NextFunction) => 
 			success: false,
 			message: 'Invalid access token',
 		})
+		return;
 	}
 }
 
