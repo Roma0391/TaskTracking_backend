@@ -1,27 +1,17 @@
 import { Request, Response } from 'express';
 import { createProfileValidation } from '../utils/validation';
 import {PrismaClient} from '@prisma/client';
-import Redis from 'ioredis';
 const prisma = new PrismaClient();
-const redis = new Redis({
-	host: process.env.REDIS_HOST,
-	port: Number(process.env.REDIS_PORT),
-});
 
-interface IUser {
-	user_id: string,
-	user_role: string,
-}
- 
-export interface ICreateProfileRequest extends Request {
-	user?: IUser
-}
-
-const createProfile = async (req: ICreateProfileRequest, res: Response) => {
+const createProfile = async (req: Request, res: Response) => {
 	try {
+		const createdBy = req.headers['x-user-id'] as string;
 		const parsedData = createProfileValidation(req.body);
 		await prisma.profile.create({
-			data: parsedData
+			data: {
+				...parsedData,
+				createdById: createdBy,
+			}
 		})
 		res.status(201).json({
 			success: true,
@@ -30,10 +20,32 @@ const createProfile = async (req: ICreateProfileRequest, res: Response) => {
 	}catch (error) {
 		res.status(500).json({
 			success: false,
-			message: 'Project service create profile error occured'
+			message: 'Profile service create profile error occured'
 		})
 		return;
 	}
 }
 
-export {createProfile}
+const fetchMyProfile = async (req: Request, res: Response) => {
+	try {
+		const userId = req.headers['x-user-id'] as string;
+		const myProfile = await prisma.profile.findUnique({
+			where: {
+				userId
+			}
+		})
+		res.status(200).json({
+			success: true,
+			message: 'Profile fetched successfully',
+			data: myProfile
+		})
+	}catch (error) {
+		res.status(500).json({
+			success: false,
+			message: 'Profile service fetch profile error occured'
+		})
+		return;
+	}
+}
+
+export {createProfile, fetchMyProfile}

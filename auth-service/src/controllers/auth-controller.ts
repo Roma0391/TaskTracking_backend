@@ -4,16 +4,8 @@ import { loginValidation, logoutValidation, refreshTokenValidation, registerVali
 import createTokens from '../utils/createTokens';
 import RefreshToken, { IRefreshTokenFromDb } from '../db/refreshTokenModel';
 
-interface IUser {
-	user_id: string,
-	user_role: string,
-}
- 
-export interface IAuthRequest extends Request {
-	user?: IUser
-}
 
-const registerUser = async (req: IAuthRequest, res: Response) => {
+const registerUser = async (req: Request, res: Response) => {
 	try{ 		
 		const parsedData = registerValidation(req.body);
 		const existingUser: IUserFromDB | null = await User.findOne({email: parsedData.email});
@@ -30,11 +22,6 @@ const registerUser = async (req: IAuthRequest, res: Response) => {
 			res.status(201).json({
 				success: true,
 				message: 'User created successfuly',
-				data: {
-					id: newUser._id,
-					role: newUser.role,
-					hasProfile: newUser.hasProfile,
-				},
 				accessToken,
 				refreshToken,
 			})
@@ -49,8 +36,6 @@ const registerUser = async (req: IAuthRequest, res: Response) => {
 
 const loginUser = async (req: Request, res: Response) => {
 	try{
-		console.log('Login user controller called');
-		
 		const parsedData = loginValidation(req.body);
 		const existedUser: IUserFromDB | null = await User.findOne({email: parsedData.email});
 		if(!existedUser) {
@@ -73,11 +58,6 @@ const loginUser = async (req: Request, res: Response) => {
 		res.status(200).json({
 			success: true,
 			message: 'User logined successfully',
-			data: {
-				id: existedUser._id,
-				role: existedUser.role,
-				hasProfile: existedUser.hasProfile,
-			},
 			refreshToken,
 			accessToken,
 		})
@@ -151,28 +131,24 @@ const refreshTokens = async (req: Request, res: Response) => {
 	}
 }
 
-const getCurrentUser = async (req: IAuthRequest, res: Response) => {
+const getUsers = async (req: Request, res: Response) => {
 	try{
-	const userId = req.headers['x-user-id'];
-		if(!userId) {
+		const userRole = req.headers['x-user-role'];
+		const userId = req.headers['x-user-id'];
+		if(!userRole) {
 			res.status(401).json({
 				success: false,
 				message: 'User not authenticated'
 			})
 			return;
 		}
-		const user: IUserFromDB | null = await User.findById(userId);
-		if(!user) {
-			res.status(404).json({
-				success: false,
-				message: 'User not found'
-			})
-			return;
-		}
+		// const {slug} = req.params;
+		// const searchingRole = userRole === 'superAdmin' ? 'admin' : 'user';
+		const users: IUserFromDB[] | null = await User.find(userRole === 'admin' ? {role: 'user'} : {});
 		res.status(200).json({
 			success: true,
-			message: 'Current user data fetched successfully',
-			data: user,
+			message: 'Users data fetched successfully',
+			data: users || [],
 		})
 	} catch(error) {
 		res.status(500).json({
@@ -182,4 +158,30 @@ const getCurrentUser = async (req: IAuthRequest, res: Response) => {
 	}
 }
 
-export {registerUser, loginUser, logoutUser, refreshTokens, getCurrentUser};
+const updateUserProfileAuthor = async (req: Request, res: Response) => {
+	try{
+		const createdBy = req.headers['x-user-id'];
+		const {userId} = req.body;
+		const updatedUser: IUserFromDB | null = await User.findByIdAndUpdate(userId, {
+			profileCreatedBy: createdBy
+		});
+		if(!updatedUser) {
+			res.status(404).json({
+				success: false,
+				message: 'User not found'
+			})
+			return;
+		};
+		res.status(200).json({
+			success: true,
+			message: 'User updateded successfully'
+		})
+	}catch(error){
+		res.status(500).json({
+			success: false,
+			message: 'Auth service login error occured'
+		})
+	}
+} 
+
+export {registerUser, loginUser, logoutUser, refreshTokens, getUsers, updateUserProfileAuthor};

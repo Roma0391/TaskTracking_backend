@@ -12,7 +12,7 @@ interface IUser {
 	email: string,
 	password: string,
 	role: Role,
-	hasProfile: boolean,
+	profileCreatedBy: string | null
 }
 
 export interface IUserFromDB extends IUser {
@@ -48,11 +48,11 @@ const UserSchema = new mongoose.Schema<IUser>({
 		type: String,
 		required: true,
 	},
-	hasProfile: {
-		type: Boolean,
-		default: false,
-		required: true,
-	},
+	profileCreatedBy: {
+		type: String || null,
+		default: null,
+		require: true,
+	}
 }, {timestamps: true});
 
 UserSchema.pre('save', async function(next) {

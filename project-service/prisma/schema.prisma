@@ -19,10 +19,15 @@ model Profile {
   firstName           String
   lastName            String
   email               String   @unique
-  role                String   @default("USER")
-  permissions         String[] @default([])
+  role                String   @default("user")
+  permisionStatus     String
+  createdById         String
   createdProjects     Project[]
-  memberOfProjects    UsersToProjects[]
+  // memberOfProjects    UsersToProjects[]
+  memberOfProjects    Project[] @relation(name: "ProjectToMembers")
+  // candidatesOfProject CandidatesToProjects[]
+  candidatesOfProject Project[] @relation(name: "ProjectToCandidates")
+
   tasks               UsersToTasks[]
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
@@ -30,29 +35,42 @@ model Profile {
 
 model Project {
   id                  String   @id @default(cuid())
-  name                String
+  name                String  @unique
   description         String?
-  createdBy           String @unique
-  admin               Profile  @relation(fields: [createdBy], references: [id])
-  members             UsersToProjects[]
+  creatorId           String 
+  createdBy           Profile  @relation(fields: [creatorId], references: [userId])
+  // members             UsersToProjects[] 
+  members             Profile[] @relation(name: "ProjectToMembers")
+  candidates          Profile[] @relation(name: "ProjectToCandidates")
+  // candidates          CandidatesToProjects[]
   tasks               Task[]
-  status              String   @default("ACTIVE")
-  startDate           DateTime?
-  priorityLavel       String   @default("MEDIUM")
+  status              String   @default("active")
+  priorityLavel       String   
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 }
 
-model UsersToProjects {
-  project     Project @relation(fields: [projectId], references: [id])
-  projectId   String // relation scalar field (used in the `@relation` attribute above)
-  profile     Profile @relation(fields: [profileId], references: [id])
-  profileId   String // relation scalar field (used in the `@relation` attribute above)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+// model UsersToProjects {
+//   project     Project @relation(fields: [projectId], references: [id])
+//   projectId   String // relation scalar field (used in the `@relation` attribute above)
+//   profile     Profile @relation(fields: [profileId], references: [userId])
+//   profileId   String // relation scalar field (used in the `@relation` attribute above)
+//   createdAt   DateTime @default(now())
+//   updatedAt   DateTime @updatedAt
 
-  @@id([projectId, profileId])
-}
+//   @@id([projectId, profileId])
+// }
+
+// model CandidatesToProjects {
+//   project     Project @relation(fields: [projectId], references: [id])
+//   projectId   String // relation scalar field (used in the `@relation` attribute above)
+//   profile     Profile @relation(fields: [profileId], references: [userId])
+//   profileId   String // relation scalar field (used in the `@relation` attribute above)
+//   createdAt   DateTime @default(now())
+//   updatedAt   DateTime @updatedAt
+
+//   @@id([projectId, profileId])
+// }
 
 model Task {
   id          String   @id @default(cuid())
@@ -61,17 +79,14 @@ model Task {
   projectId   String
   project     Project  @relation(fields: [projectId], references: [id])
   deadline    DateTime
-  subtasks    Task[]   @relation("Subtasks")
-  parentTask  Task?    @relation("Subtasks", fields: [parentTaskId], references: [id])
-  parentTaskId String?
   users       UsersToTasks[]
   progress    Int      @default(0)
   estimatedTime Int    @default(0) // in minutes
   spentTime   Int      @default(0) // in minutes 
-  status      String   @default("TODO") // TODO, IN_PROGRESS, DONE
-  priorityLevel String @default("MEDIUM") // LOW, MEDIUM, HIGH 
+  status      String   @default("todo") // TODO, IN_PROGRESS, DONE
+  priorityLevel String @default("medium") // LOW, MEDIUM, HIGH 
   createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  updatedAt   DateTime @updatedAt 
   @@index([projectId])
 }
 
