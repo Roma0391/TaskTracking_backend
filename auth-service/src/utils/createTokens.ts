@@ -12,8 +12,9 @@ const createTokens = async (user: IUserFromDB): Promise<ICreatedTokens> => {
 	const jwtBody = {
 		user_id: user._id,
 		user_role: user.role,
-		profileCreatedBy: user.profileCreatedBy
-
+		profileCreatedBy: user.profileCreatedBy,
+		user_firstName: user.firstName,
+		user_lastName: user.lastName,
 	}
 	const accessToken = jwt.sign(jwtBody, process.env.JWT_SECRET as string, {expiresIn: '24h'});
 	const refreshToken = crypto.randomBytes(40).toString("hex");

@@ -1,9 +1,11 @@
 import { Request, Response } from 'express';
 import User, { IUserFromDB } from '../db/userModel';
-import { loginValidation, logoutValidation, refreshTokenValidation, registerValidation } from '../utils/validation'
+import { loginValidation, logoutValidation, registerValidation } from '../utils/validation'
 import createTokens from '../utils/createTokens';
 import RefreshToken, { IRefreshTokenFromDb } from '../db/refreshTokenModel';
+import Redis from 'ioredis'
 
+const redisClient = new Redis(process.env.REDIS_URL as string);
 
 const registerUser = async (req: Request, res: Response) => {
 	try{ 		
@@ -12,24 +14,29 @@ const registerUser = async (req: Request, res: Response) => {
 		if(existingUser) {
 		    res.status(401).json({
 				success: false,
-				message: 'User olready exists'
 			}) 
 			return;
 		} 
 		const newUser: IUserFromDB = await User.create(parsedData);
 		const {accessToken, refreshToken} = await createTokens(newUser);
 		if(newUser){
-			res.status(201).json({
-				success: true,
-				message: 'User created successfuly',
+			const result = {
+			data: [{
 				accessToken,
 				refreshToken,
+			}] ,
+			curentPage: 1,
+			totalPage: 1,
+			totalItems: 1,
+		};
+			res.status(201).json({
+				success: true,
+				result
 			})
-		}
+		} 
 	}catch(error){		
 		res.status(500).json({
 			success: false,
-			message: 'Auth service register user error occured'
 		})
 	}
 }
@@ -39,32 +46,36 @@ const loginUser = async (req: Request, res: Response) => {
 		const parsedData = loginValidation(req.body);
 		const existedUser: IUserFromDB | null = await User.findOne({email: parsedData.email});
 		if(!existedUser) {
-			res.status(404).json({
+			res.status(401).json({
 				success: false,
-				message: 'User not found'
 			})
 			return;
 		};
-		const isPasswordMatch: boolean = existedUser!.comparePassword(parsedData.password);
+		const isPasswordMatch: boolean = await existedUser.comparePassword(parsedData.password);
 
 		if(!isPasswordMatch) {
 			res.status(401).json({
 				success: false,
-				message: 'Invalid password'
 			})
 			return;
 		}
 		const {refreshToken, accessToken} = await createTokens(existedUser!);
-		res.status(200).json({
+		const result = {
+			data: [{
+				accessToken,
+				refreshToken,
+			}] ,
+			curentPage: 1,
+			totalPage: 1,
+			totalItems: 1,
+		};
+		res.status(201).json({
 			success: true,
-			message: 'User logined successfully',
-			refreshToken,
-			accessToken,
+			result
 		})
 	}catch(error){
 		res.status(500).json({
-			success: false,
-			message: 'Auth service login error occured'
+			success: false
 		})
 	}
 } 
@@ -73,20 +84,17 @@ const logoutUser = async (req: Request, res: Response) => {
 	try{
 		const {refreshToken} = logoutValidation(req.body);
 		if(!refreshToken){
-			res.status(400).json({
+			res.status(404).json({
 				success: false,
-				message: 'Refresh token missing'
 			})
 		}
 		await RefreshToken.deleteOne({token: refreshToken});
 		res.status(200).json({
 			success: true,
-			message: 'Logged out successfully'
 		})
 	}catch(error){
 		res.status(500).json({
 			success: false,
-			message: 'Auth service logout error occured'
 		})
 	}
 }
@@ -95,38 +103,41 @@ const refreshTokens = async (req: Request, res: Response) => {
 	try{
 		const refreshToken = req.headers.authorization?.split(' ')[1] || null;
 		if(!refreshToken) {
-			res.status(400).json({
+			res.status(401).json({
 				success: false,
-				message: 'Refresh token missing'
 			})
 		}
 		const storedToken: IRefreshTokenFromDb | null = await RefreshToken.findOne({token: refreshToken});
 		if(!storedToken || storedToken.expiresAt < new Date()) {
-			res.status(400).json({
+			res.status(401).json({
 				success: false,
-				message: 'Invalide refresh token on expires data ended'
 			})
 		}
 		const user: IUserFromDB | null = await User.findById(storedToken!.user);
 		
 		if(!user) {
-			res.status(401).json({
+			res.status(404).json({
 				success: false,
-				message: 'User not found'
 			})
 		}
 		const {accessToken: newAccessToken, refreshToken: newRefreshToken} = await createTokens(user!);
 		await RefreshToken.deleteOne({id: storedToken!._id});
-		res.status(200).json({
+		const result = {
+			data: [{
+				accessToken: newAccessToken,
+				refreshToken: newRefreshToken,
+			}] ,
+			curentPage: 1,
+			totalPage: 1,
+			totalItems: 1,
+		};
+		res.status(201).json({
 			success: true,
-			message: 'Tokens updated successfully',
-			accessToken: newAccessToken,
-			refreshToken: newRefreshToken,
+			result
 		})
 	}catch(error){
 		res.status(500).json({
 			success: false,
-			message: 'Auth service refresh tokens error occured'
 		})
 	}
 }
@@ -134,54 +145,63 @@ const refreshTokens = async (req: Request, res: Response) => {
 const getUsers = async (req: Request, res: Response) => {
 	try{
 		const userRole = req.headers['x-user-role'];
-		const userId = req.headers['x-user-id'];
+		const flag = req.query.flag;
+		const page = +(req.query.page || 1);
+		const limit = +(req.query.limit || 7);
+		const startIndex = (page - 1) * limit;
+		// const catchKey = `posts:${page}:${limit}`;
 		if(!userRole) {
 			res.status(401).json({
 				success: false,
-				message: 'User not authenticated'
 			})
-			return;
+			return
 		}
-		// const {slug} = req.params;
-		// const searchingRole = userRole === 'superAdmin' ? 'admin' : 'user';
-		const users: IUserFromDB[] | null = await User.find(userRole === 'admin' ? {role: 'user'} : {});
+		if(userRole !== 'superAdmin') {
+			res.status(401).json({
+				success: false,
+			})
+			return
+		}
+		const users: IUserFromDB[] | null = flag === 'Create' ? await User.find({}).where({profileCreatedBy: null})
+			.sort({ createdAt: -1 })
+      		.skip(startIndex)
+      		.limit(limit) : await User.find({}).where('profileCreatedBy').ne(null)
+			.sort({ createdAt: -1 })
+      		.skip(startIndex)
+      		.limit(limit);
+		const totalNumberOfUsers = flag === 'Create' ? await User.countDocuments().where({profileCreatedBy: null}) : await User.countDocuments().where('profileCreatedBy').ne(null);
+		const result = {
+			data: users || [],
+			curentPage: page,
+			totalPage: Math.ceil(totalNumberOfUsers / limit),
+			totalItems: totalNumberOfUsers,
+		};
 		res.status(200).json({
 			success: true,
-			message: 'Users data fetched successfully',
-			data: users || [],
+			result,
 		})
 	} catch(error) {
 		res.status(500).json({
 			success: false,
-			message: 'Auth service get current user error occured'
 		})
 	}
 }
 
-const updateUserProfileAuthor = async (req: Request, res: Response) => {
+const deleteUser = async (req: Request, res: Response) => {
 	try{
-		const createdBy = req.headers['x-user-id'];
-		const {userId} = req.body;
-		const updatedUser: IUserFromDB | null = await User.findByIdAndUpdate(userId, {
-			profileCreatedBy: createdBy
-		});
-		if(!updatedUser) {
-			res.status(404).json({
-				success: false,
-				message: 'User not found'
-			})
-			return;
-		};
-		res.status(200).json({
+		const {userId} = req.params;
+		await User.findByIdAndDelete(userId);
+		await RefreshToken.deleteOne({user: userId});
+		const publisher = redisClient.duplicate();
+		publisher.publish('user.delete', JSON.stringify({userId}));
+		res.status(201).json({
 			success: true,
-			message: 'User updateded successfully'
 		})
 	}catch(error){
 		res.status(500).json({
 			success: false,
-			message: 'Auth service login error occured'
 		})
 	}
 } 
 
-export {registerUser, loginUser, logoutUser, refreshTokens, getUsers, updateUserProfileAuthor};
+export {registerUser, loginUser, logoutUser, refreshTokens, getUsers, deleteUser};

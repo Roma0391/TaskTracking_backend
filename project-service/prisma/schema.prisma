@@ -22,7 +22,7 @@ model Profile {
   role                String   @default("user")
   permisionStatus     String
   createdById         String
-  createdProjects     Project[]
+  createdProjects     Project[] 
   // memberOfProjects    UsersToProjects[]
   memberOfProjects    Project[] @relation(name: "ProjectToMembers")
   // candidatesOfProject CandidatesToProjects[]
@@ -38,7 +38,7 @@ model Project {
   name                String  @unique
   description         String?
   creatorId           String 
-  createdBy           Profile  @relation(fields: [creatorId], references: [userId])
+  createdBy           Profile  @relation(fields: [creatorId], references: [userId], onDelete: Cascade)
   // members             UsersToProjects[] 
   members             Profile[] @relation(name: "ProjectToMembers")
   candidates          Profile[] @relation(name: "ProjectToCandidates")

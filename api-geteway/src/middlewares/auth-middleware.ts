@@ -4,6 +4,9 @@ import {Request, Response, NextFunction} from 'express'
 interface IUserJWTData extends JwtPayload {
 	user_id: string,
 	user_role: string,
+	profileCreatedBy: string,
+	user_firstName: string,
+	user_lastName: string,
 }
 
 const validateToken = async (req: Request, res: Response, next: NextFunction) => {
@@ -25,11 +28,17 @@ const validateToken = async (req: Request, res: Response, next: NextFunction) =>
 		if(req.path === '/current-user') {			
 			res.status(200).json({
 				success: true,
-				message: 'Current user fetched successfully',
-				data: {
-					userId: user.user_id,
-					userRole: user.user_role,
-					profileCreatedBy: user.profileCreatedBy
+				result: {
+					data: [{
+						userId: user.user_id,
+						userRole: user.user_role,
+						profileCreatedBy: user.profileCreatedBy,
+						userFirstName: user.user_firstName,
+						userLastName: user.user_lastName,
+					}],
+					curentPage: 1,
+					totalPage: 1,
+					totalItems: 1,
 				}
 			})
 		} else {
@@ -41,9 +50,8 @@ const validateToken = async (req: Request, res: Response, next: NextFunction) =>
 			next();
 		}
 	}catch(error){
-		res.status(429).json({
+		res.status(500).json({
 			success: false,
-			message: 'Invalid access token',
 		})
 		return;
 	}
