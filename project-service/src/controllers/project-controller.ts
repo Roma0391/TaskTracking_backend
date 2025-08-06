@@ -50,7 +50,7 @@ const getAllProjects = async (req: Request, res: Response) => {
 				createdBy: userProfile
 			}
 		} else {
-switch(flag) {
+			switch(flag) {
 			case 'my':
 				findQuery = {
 					members: {
@@ -91,6 +91,11 @@ switch(flag) {
 				members: flag === 'my',
 				candidates: flag !== 'my',
 				createdBy: true,
+				tasks: {
+					include: {
+						toDoProfile: true,
+					}
+				}
 			},
 			skip: startIndex,
 			take: limit,
@@ -116,58 +121,44 @@ switch(flag) {
 	}
 }
 
-// const getMyProjects = async (req: Request, res: Response) => {
-// 	try {
-// 		const userId = req.headers['x-user-id'] as string;
-// 		const userRole = req.headers['x-user-role'] as string;
-// 		const flag = req.query.flag;
-// 		const page = +(req.query.page || 1);
-// 		const limit = +(req.query.limit || 7);
-// 		const startIndex = (page - 1) * limit;
-// 		const userProfile = await prisma.profile.findUnique({
-// 			where: {userId}
-// 		})
-// 		if(!userProfile) {
-// 				res.status(401).json({ 
-// 				success: false,
-// 			})
-// 			return;
-// 		}
-// 		const data = await prisma.project.findMany({
-// 			where: {
-// 				createdBy: userProfile
-// 			},
-// 			include: {
-// 				createdBy: true,
-// 				members: flag === 'Edit',
-// 				candidates: flag === 'Create'
-// 			},
-// 			skip: startIndex,
-// 			take: limit,
-// 		})
-// 		const totalNumberOfProjects =  await prisma.project.count({
-// 			where: {
-// 				createdBy: userProfile
-// 			},
-// 		})
-// 		const result = {
-// 			data: data || [],
-// 			curentPage: page,
-// 			totalPage: Math.ceil(totalNumberOfProjects / limit),
-// 			totalItems: totalNumberOfProjects,
-// 		};
+const getProjectById = async (req: Request, res: Response) => {
+	try {
 
-// 		res.status(200).json({
-// 			success: true,
-// 			result
-// 		})
-// 	}catch (error) {
-// 		res.status(500).json({
-// 			success: false,
-// 		})
-// 		return;
-// 	}
-// }
+		const {projectId} = req.params;
+		const project = await prisma.project.findUnique({
+			where: {
+				id: projectId
+			},
+			include: {
+				members: true,
+				tasks: true,
+				createdBy: true
+			}
+		})
+		if(!project) {
+			res.status(401).json({ 
+				success: false,
+			});
+			return;
+		}
+
+		const result = {
+			data: [project],
+			curentPage: 1,
+			totalPage: 1,
+			totalItems: 1,
+		};
+		res.status(200).json({
+			success: true,
+			result
+		})
+	}catch (error) {
+		res.status(500).json({
+			success: false,
+		})
+		return;
+	}
+}
 
 const joinProject = async (req: Request, res: Response) => {
 	try {
@@ -333,4 +324,26 @@ const removeProfilefromProject = async (req: Request, res: Response) => {
 	}
 }
 
-export {createProject, getAllProjects, joinProject, addUserToProject, removeProfilefromProject, quitProject, deleteProject}
+const updateProjectOption = async (req: Request, res: Response) => {
+	try {
+		const {projectId} = req.params;
+		const data = req.body;
+
+		await prisma.project.update({
+			where: {
+				id: projectId
+			},
+			data: data
+		})
+		res.status(200).json({
+			success: true,
+		})
+	}catch (error) {
+		res.status(500).json({
+			success: false,
+		})
+		return;
+	}
+}
+
+export {createProject, getAllProjects, joinProject, addUserToProject, removeProfilefromProject, quitProject, deleteProject, getProjectById, updateProjectOption}

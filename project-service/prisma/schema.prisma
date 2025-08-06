@@ -27,8 +27,7 @@ model Profile {
   memberOfProjects    Project[] @relation(name: "ProjectToMembers")
   // candidatesOfProject CandidatesToProjects[]
   candidatesOfProject Project[] @relation(name: "ProjectToCandidates")
-
-  tasks               UsersToTasks[]
+  tasks               Task[]
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 }
@@ -79,10 +78,12 @@ model Task {
   projectId   String
   project     Project  @relation(fields: [projectId], references: [id])
   deadline    DateTime
-  users       UsersToTasks[]
+  toDoProfileId String?
+  toDoProfile Profile? @relation( fields: [toDoProfileId], references: [id])
+  subTasks   Task[] @relation("SubTasks")
+  parentTask  Task?    @relation(name: "SubTasks", fields: [parentTaskId], references: [id])
+  parentTaskId String? // optional field to link to a parent
   progress    Int      @default(0)
-  estimatedTime Int    @default(0) // in minutes
-  spentTime   Int      @default(0) // in minutes 
   status      String   @default("todo") // TODO, IN_PROGRESS, DONE
   priorityLevel String @default("medium") // LOW, MEDIUM, HIGH 
   createdAt   DateTime @default(now())
@@ -90,12 +91,12 @@ model Task {
   @@index([projectId])
 }
 
-model UsersToTasks {
-  task        Task @relation(fields: [taskId], references: [id])
-  taskId      String // relation scalar field (used in the `@relation` attribute above)
-  profile     Profile @relation(fields: [profileId], references: [id])
-  profileId   String // relation scalar field (used in the `@relation` attribute above)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  @@id([taskId, profileId])
-}
+// model UsersToTasks {
+//   task        Task @relation(fields: [taskId], references: [id])
+//   taskId      String // relation scalar field (used in the `@relation` attribute above)
+//   profile     Profile @relation(fields: [profileId], references: [id])
+//   profileId   String // relation scalar field (used in the `@relation` attribute above)
+//   createdAt   DateTime @default(now())
+//   updatedAt   DateTime @updatedAt
+//   @@id([taskId, profileId])
+// }

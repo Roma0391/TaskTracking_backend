@@ -15,6 +15,7 @@ const validateToken = async (req: Request, res: Response, next: NextFunction) =>
 		return;
 	}
 	const accessToken = req.headers.authorization?.split(' ')[1] || null;
+	
 	if(!accessToken) {
 		res.status(401).json({
 			success: false,
@@ -24,7 +25,6 @@ const validateToken = async (req: Request, res: Response, next: NextFunction) =>
 	}
 	try {
 		const user = jwt.verify(accessToken, process.env.JWT_SECRET as string) as IUserJWTData;
-		
 		if(req.path === '/current-user') {			
 			res.status(200).json({
 				success: true,
