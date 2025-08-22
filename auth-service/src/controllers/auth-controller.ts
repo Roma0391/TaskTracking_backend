@@ -1,13 +1,16 @@
+import { PROFILE_FLAGS } from './../../../../TaskTracking_frontend/src/interfaces/flags';
 import { Request, Response } from 'express';
-import User, { IUserFromDB } from '../db/userModel';
+import User from '../db/userModel';
 import { loginValidation, logoutValidation, registerValidation } from '../utils/validation'
 import createTokens from '../utils/createTokens';
 import RefreshToken, { IRefreshTokenFromDb } from '../db/refreshTokenModel';
 import Redis from 'ioredis'
+import { IDataResponce } from '../../../interfaces/apiResponcesTypes';
+import { IUserFromDB, Roles, Tokens } from '../../../interfaces/user';
 
 const redisClient = new Redis(process.env.REDIS_URL as string);
 
-const registerUser = async (req: Request, res: Response) => {
+export const registerUser = async (req: Request, res: Response) => {
 	try{ 		
 		const parsedData = registerValidation(req.body);
 		const existingUser: IUserFromDB | null = await User.findOne({email: parsedData.email});
@@ -41,7 +44,7 @@ const registerUser = async (req: Request, res: Response) => {
 	}
 }
 
-const loginUser = async (req: Request, res: Response) => {
+export const loginUser = async (req: Request, res: Response) => {
 	try{
 		const parsedData = loginValidation(req.body);
 		const existedUser: IUserFromDB | null = await User.findOne({email: parsedData.email});
@@ -59,7 +62,7 @@ const loginUser = async (req: Request, res: Response) => {
 			})
 			return;
 		}
-		const {refreshToken, accessToken} = await createTokens(existedUser!);
+		const {refreshToken, accessToken} = await createTokens(existedUser);
 		const result = {
 			data: [{
 				accessToken,
@@ -80,7 +83,7 @@ const loginUser = async (req: Request, res: Response) => {
 	}
 } 
 
-const logoutUser = async (req: Request, res: Response) => {
+export const logoutUser = async (req: Request, res: Response) => {
 	try{
 		const {refreshToken} = logoutValidation(req.body);
 		if(!refreshToken){
@@ -99,7 +102,7 @@ const logoutUser = async (req: Request, res: Response) => {
 	}
 }
 
-const refreshTokens = async (req: Request, res: Response) => {
+export const refreshTokens = async (req: Request, res: Response) => {
 	try{
 		const refreshToken = req.headers.authorization?.split(' ')[1] || null;
 		if(!refreshToken) {
@@ -142,34 +145,33 @@ const refreshTokens = async (req: Request, res: Response) => {
 	}
 }
 
-const getUsers = async (req: Request, res: Response) => {
+export const getUsers = async (req: Request, res: Response) => {
 	try{
 		const userRole = req.headers['x-user-role'];
 		const flag = req.query.flag;
 		const page = +(req.query.page || 1);
 		const limit = +(req.query.limit || 7);
 		const startIndex = (page - 1) * limit;
-		// const catchKey = `posts:${page}:${limit}`;
 		if(!userRole) {
 			res.status(401).json({
 				success: false,
 			})
 			return
 		}
-		if(userRole !== 'superAdmin') {
+		if(userRole !== Roles.SUPERADMIN) {
 			res.status(401).json({
 				success: false,
 			})
 			return
 		}
-		const users: IUserFromDB[] | null = flag === 'Create' ? await User.find({}).where({profileCreatedBy: null})
+		const users: IUserFromDB[] | null = flag === PROFILE_FLAGS.CREATE ? await User.find({}).where({isAuthUpprove: false})
 			.sort({ createdAt: -1 })
       		.skip(startIndex)
-      		.limit(limit) : await User.find({}).where('profileCreatedBy').ne(null)
+      		.limit(limit) : await User.find({}).where({isAuthUpprove: true})
 			.sort({ createdAt: -1 })
       		.skip(startIndex)
       		.limit(limit);
-		const totalNumberOfUsers = flag === 'Create' ? await User.countDocuments().where({profileCreatedBy: null}) : await User.countDocuments().where('profileCreatedBy').ne(null);
+		const totalNumberOfUsers = flag === PROFILE_FLAGS.CREATE ? await User.countDocuments().where({isAuthUpprove: false}) : await User.countDocuments().where({isAuthUpprove: true});
 		const result = {
 			data: users || [],
 			curentPage: page,
@@ -187,7 +189,23 @@ const getUsers = async (req: Request, res: Response) => {
 	}
 }
 
-const deleteUser = async (req: Request, res: Response) => {
+export const upproveAuth = async (req: Request, res: Response) => {
+	try{
+		const {userId} = req.params;
+		const user = await User.findById(userId);
+		user.isAuthUpprove = true;
+		await user.save();
+		res.status(201).json({
+			success: true,
+		})
+	}catch(error){
+		res.status(500).json({
+			success: false,
+		})
+	}
+}
+
+export const deleteUser = async (req: Request, res: Response) => {
 	try{
 		const {userId} = req.params;
 		await User.findByIdAndDelete(userId);
@@ -203,5 +221,3 @@ const deleteUser = async (req: Request, res: Response) => {
 		})
 	}
 } 
-
-export {registerUser, loginUser, logoutUser, refreshTokens, getUsers, deleteUser};

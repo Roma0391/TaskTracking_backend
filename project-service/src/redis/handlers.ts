@@ -10,8 +10,8 @@ export const redisHandlers = (channel: string, message: string) => {
 }
 
 const deleteProfile = async (message: string) => {
-	const {userId} = JSON.parse(message);
-	await prisma.profile.delete({
+	const {userId}: {userId: string} = JSON.parse(message);
+	await prisma.profile.deleteMany({
 		where: {
 			userId
 		}

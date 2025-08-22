@@ -1,5 +1,5 @@
 import mongoose from 'mongoose';
-import { IUserFromDB } from './userModel';
+import { IUserFromDB } from '../../../interfaces/user';
 
 interface IRefreshToken {
 	token: string,

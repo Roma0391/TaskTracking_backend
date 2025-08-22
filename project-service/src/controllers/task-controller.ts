@@ -1,34 +1,15 @@
 import { Request, Response } from 'express';
 import { createSubtaskValidation, createTaskValidation } from '../utils/validation';
 import {PrismaClient} from '@prisma/client';
+import { TaskStatus } from '../../../interfaces/task';
 const prisma = new PrismaClient();
 
 export const createTask = async (req: Request, res: Response) => {
 	try {
-		
-		const createdBy = req.headers['x-user-id'] as string;
 		const parsedData = createTaskValidation(req.body);
-		console.log('Creating task with data:', parsedData);
 		
 		if(!parsedData.projectId) {
 			res.status(400).json({
-				success: false,
-			});
-			return;
-		}
-		const project = await prisma.project.findUnique({
-			where: { id: parsedData.projectId },
-		});
-		console.log('Found project:', project);
-		
-		if(!project) {
-			res.status(404).json({
-				success: false,
-			});
-			return;
-		}
-		if(project.creatorId !== createdBy) {
-			res.status(403).json({
 				success: false,
 			});
 			return;
@@ -39,11 +20,12 @@ export const createTask = async (req: Request, res: Response) => {
 				title: parsedData.title,
 				description: parsedData.description || '',
 				deadline: parsedData.deadline,
-				priorityLevel: parsedData.priorityLavel,
+				priorityLevel: parsedData.priorityLevel,
+				status: TaskStatus.TODO,
 				project: {
 					connect: { id: parsedData.projectId }
 				},
-			}
+			},
 		})
 		res.status(201).json({
 			success: true,
@@ -58,29 +40,13 @@ export const createTask = async (req: Request, res: Response) => {
 
 export const createSubtask = async (req: Request, res: Response) => {
 	try {
-		console.log('Creating subtask with headers:', req.headers);
-		
-		const createdBy = req.headers['x-user-id'] as string;
-
 		const parsedData = createSubtaskValidation(req.body);
-		console.log('Creating subtask with data:', parsedData);
-		
 		if(!parsedData.projectId || !parsedData.parentTaskId || !parsedData.toDoProfileId) {
 			res.status(400).json({
 				success: false,
 			});
 			return;
 		}
-		const project = await prisma.project.findUnique({
-			where: { id: parsedData.projectId },
-		});
-		if(!project) {
-			res.status(404).json({
-				success: false,
-			});
-			return;
-		}
-		
 		await prisma.task.update({
 			where: {
 				id: parsedData.parentTaskId,
@@ -91,8 +57,8 @@ export const createSubtask = async (req: Request, res: Response) => {
 						title: parsedData.title,
 						description: parsedData.description || '',
 						deadline: parsedData.deadline,
-						status: 'inProgress',
-						priorityLevel: parsedData.priorityLavel,
+						status: TaskStatus.IN_PROGRESS,
+						priorityLevel: parsedData.priorityLevel,
 						project: {
 							connect: { id: parsedData.projectId }
 						},
@@ -101,8 +67,9 @@ export const createSubtask = async (req: Request, res: Response) => {
 						}
 					}
 				}
-			}
+			},
 		})
+		
 		res.status(201).json({
 			success: true,
 		})
@@ -110,7 +77,6 @@ export const createSubtask = async (req: Request, res: Response) => {
 		res.status(500).json({
 			success: false,
 		})
-		return;
 	}
 }
 
@@ -122,8 +88,8 @@ export const updateTaskLevel = async (req: Request, res: Response) => {
 			where: {
 				id: taskId
 			},
-			data: data
-		})
+			data: data,
+		});
 		res.status(200).json({
 			success: true,
 		})
@@ -131,7 +97,6 @@ export const updateTaskLevel = async (req: Request, res: Response) => {
 		res.status(500).json({
 			success: false,
 		})
-		return;
 	}
 }
 
@@ -145,9 +110,9 @@ export const addTodoUser = async (req: Request, res: Response) => {
 			},
 			data: {
 				toDoProfileId: data.profileId,
-				status: 'inProgress'
-			}
-		})
+				status: TaskStatus.IN_PROGRESS
+			},
+		});
 		res.status(200).json({
 			success: true,
 		})
@@ -155,7 +120,6 @@ export const addTodoUser = async (req: Request, res: Response) => {
 		res.status(500).json({
 			success: false,
 		})
-		return;
 	}
 }
 
@@ -167,13 +131,11 @@ export const fetchTaskById = async (req: Request, res: Response) => {
 				id: taskId
 			},
 			include: {
-				project: true,
-				toDoProfile: true,
 				subTasks: {
 					include: {
 						toDoProfile: true
 					}
-				}
+				},
 			}
 		})
 		
@@ -191,7 +153,6 @@ export const fetchTaskById = async (req: Request, res: Response) => {
 		res.status(500).json({
 			success: false,
 		})
-		return;
 	}
 }
 
@@ -207,17 +168,17 @@ export const finishTask = async (req: Request, res: Response) => {
 					include: {
 						subTasks: true
 					}
-				}
+				},
 			}
 		});
 		const subTasks = currentTask?.parentTask?.subTasks || [];
 		
-		const taskProgress = subTasks.every(subtask => subtask.status === 'done') ? '100' : ((subTasks.filter(subtask => subtask.status === 'done').length + 1) / (subTasks.length + 1) * 100).toFixed(0);
+		const taskProgress = subTasks.every(subtask => subtask.status === TaskStatus.DONE) ? '100' : ((subTasks.filter(subtask => subtask.status === TaskStatus.DONE).length + 1) / (subTasks.length + 1) * 100).toFixed(0);
 		const data = subTasks.length === 0 ? {
-			status: 'done',
+			status: TaskStatus.DONE,
 			progress: 100,
 		} : {
-			status: 'done',
+			status: TaskStatus.DONE,
 			progress: 100,
 			parentTask: {
 					update: {
@@ -230,7 +191,7 @@ export const finishTask = async (req: Request, res: Response) => {
 				id: taskId
 			},
 			data,
-		})
+		});
 		res.status(200).json({
 			success: true,
 		})
@@ -238,6 +199,5 @@ export const finishTask = async (req: Request, res: Response) => {
 		res.status(500).json({
 			success: false,
 		})
-		return;
 	}
 }

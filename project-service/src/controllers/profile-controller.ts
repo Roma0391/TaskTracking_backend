@@ -1,22 +1,38 @@
 import { Request, Response } from 'express';
 import { createProfileValidation } from '../utils/validation';
 import {PrismaClient} from '@prisma/client';
-import Redis from 'ioredis'
+import { Roles } from '../../../interfaces/user';
 const prisma = new PrismaClient();
-const redisClient = new Redis(process.env.REDIS_URL as string);
 
-const createProfile = async (req: Request, res: Response) => {
-	try {
+export const createProfile = async (req: Request, res: Response) => {
+	try {		
 		const createdBy = req.headers['x-user-id'] as string;
 		const parsedData = createProfileValidation(req.body);
-		await prisma.profile.create({
+		
+		const profile = await prisma.profile.create({
 			data: {
 				...parsedData,
-				createdById: createdBy,
+				createdById: createdBy
 			}
 		})
-		const pub = redisClient.duplicate();
-		pub.publish('profile.create', JSON.stringify({createdBy, userId: parsedData.userId}));
+		if(parsedData.role === Roles.USER) {
+			await prisma.profile.update({
+				where: {
+					id: profile.id,
+				},
+				data: {
+					project: {
+						connect: {
+							id: parsedData.projectId
+						}
+					}
+				}
+			});
+			await prisma.candidate.deleteMany({
+				where: {AND: [{userId: parsedData.userId}, {projectId: parsedData.projectId}]}
+			});
+		}
+
 		res.status(201).json({
 			success: true,
 		})
@@ -28,18 +44,21 @@ const createProfile = async (req: Request, res: Response) => {
 	}
 }
 
-const fetchMyProfile = async (req: Request, res: Response) => {
+export const fetchMyProfile = async (req: Request, res: Response) => {
 	try {  
 		const userId = req.headers['x-user-id'] as string;
-		const myProfile = await prisma.profile.findUnique({
+		const {projectId} = req.params;
+		const myProfiles = await prisma.profile.findMany({
 			where: {
-				userId
+				userId,
 			},
 		})
+		const myProfile = myProfiles.filter(profile => profile.projectId === null || profile.projectId === projectId)[0]
 		if (!myProfile) {
 			res.status(404).json({
 				success: false,
 			})
+			return;
 		}
 		const result = {
 			data: [myProfile],
@@ -55,41 +74,31 @@ const fetchMyProfile = async (req: Request, res: Response) => {
 		res.status(500).json({
 			success: false,
 		})
-		return;
 	}
 }
 
-const fetchProfilesByProjectCreators = async (req: Request, res: Response) => {
-	try {
-		const userId = req.headers['x-user-id'] as string;
-		if(!userId) {
+export const getMembersByAdminId = async (req: Request, res: Response) => {
+	try {		
+		const adminId = req.headers['x-user-id'] as string;
+		console.log(adminId);
+		
+		if(!adminId) {
 			res.status(404).json({
 				success: false,
 			})
 			return;
 		}
-		const flag = req.query.flag;
+
 		const page = +(req.query.page || 1);
 		const limit = +(req.query.limit || 7);
 		const startIndex = (page - 1) * limit;
-		const findQuery = flag === 'Create' ? {
-				candidatesOfProject: {
-					some: {
-						creatorId: userId, 
-					},
-				},
-			} : {
-				memberOfProjects: {
-					some: {
-						creatorId: userId
-					}
-				},
-			}
+
 		const profiles = await prisma.profile.findMany({
-			where: findQuery,
+			where: {
+				createdById: adminId
+			},
 			include: {
-				memberOfProjects: flag === 'Edit',
-				candidatesOfProject: flag === 'Create',
+				project: true
 			},
 			skip: startIndex,
 			take: limit,
@@ -97,23 +106,12 @@ const fetchProfilesByProjectCreators = async (req: Request, res: Response) => {
 		if (!profiles) {
 			res.status(404).json({
 				success: false,
-			})
+			});
+			return;
 		}
-		const totalNumberOfProfiles = flag === 'Edit' ? await prisma.profile.count({
+		const totalNumberOfProfiles = await prisma.profile.count({
 			where:  {
-				memberOfProjects: {
-					some: {
-						creatorId: userId
-					},
-				},
-			} 
-		}) : await prisma.profile.count({
-			where:  {
-				candidatesOfProject: {
-					some: {
-						creatorId: userId
-					},
-				},
+				createdById: adminId
 			} 
 		});
 		const result = {
@@ -134,9 +132,10 @@ const fetchProfilesByProjectCreators = async (req: Request, res: Response) => {
 	}
 }
 
-const editProfile = async (req: Request, res: Response) => {
+export const editProfile = async (req: Request, res: Response) => {
 	try {
-		const {profileId, permisionStatus} = req.body;
+		const {permisionStatus} = req.body;
+		const profileId = req.params.profileId;
 
 		await prisma.profile.update({
 			where: {
@@ -153,8 +152,5 @@ const editProfile = async (req: Request, res: Response) => {
 		res.status(500).json({
 			success: false,
 		})
-		return;
 	}
 }
-
-export {createProfile, fetchMyProfile, editProfile, fetchProfilesByProjectCreators}

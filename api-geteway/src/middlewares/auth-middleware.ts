@@ -4,13 +4,13 @@ import {Request, Response, NextFunction} from 'express'
 interface IUserJWTData extends JwtPayload {
 	user_id: string,
 	user_role: string,
-	profileCreatedBy: string,
+	isAuthUpprove: string,
 	user_firstName: string,
 	user_lastName: string,
 }
 
 const validateToken = async (req: Request, res: Response, next: NextFunction) => {
-	if(req.path === '/register' || req.path === '/refresh-tokens' || req.path === '/login' || req.path === '/logout') {
+	if(req.path === '/register' || req.path === '/refresh-tokens' || req.path === '/login' || req.path === '/logout' ) {
 		next();
 		return;
 	}
@@ -32,7 +32,7 @@ const validateToken = async (req: Request, res: Response, next: NextFunction) =>
 					data: [{
 						userId: user.user_id,
 						userRole: user.user_role,
-						profileCreatedBy: user.profileCreatedBy,
+						isAuthUpprove: user.isAuthUpprove,
 						userFirstName: user.user_firstName,
 						userLastName: user.user_lastName,
 					}],

@@ -26,7 +26,7 @@ const startServer = () => {
 	app.listen(PORT, () => {
 		console.log(`Auth-service started on port ${PORT}`);
 	});
-	redisClient.subscribe('profile.create', (err, count) => {
+	redisClient.subscribe('user.join_request', (err, count) => {
 		if(err) {
 			throw new Error('Redis subscrib error occured')
 		} else {
@@ -38,6 +38,3 @@ const startServer = () => {
 }
 
 startServer();
-// app.listen(PORT, () => {
-// 	console.log(`Auth-service started on port ${PORT}`);
-// });

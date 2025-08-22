@@ -1,28 +1,8 @@
 import mongoose from 'mongoose';
 import argon2 from 'argon2';
+import { IUser } from '../../../interfaces/user';
 
-export enum Role {
-	ADMIN = 'admin',
-	USER = 'user',
-}
-
-interface IUser {
-	firstName: string,
-	lastName: string,
-	email: string,
-	password: string,
-	role: Role,
-	profileCreatedBy: string | null
-}
-
-export interface IUserFromDB extends IUser {
-	_id: string,
-	createdAt: Date,
-	updatedAt: Date,
-	comparePassword(password: string): boolean
-}
-
-const UserSchema = new mongoose.Schema<IUser>({
+const UserSchema = new mongoose.Schema({
 	firstName: {
 		type: String,
 		required: true,
@@ -48,9 +28,9 @@ const UserSchema = new mongoose.Schema<IUser>({
 		type: String,
 		required: true,
 	},
-	profileCreatedBy: {
-		type: String || null,
-		default: null,
+	isAuthUpprove: {
+		type: Boolean,
+		default: false,
 		require: true,
 	}
 }, {timestamps: true});

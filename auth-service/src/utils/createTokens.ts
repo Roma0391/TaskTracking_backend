@@ -1,7 +1,7 @@
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import RefreshToken from '../db/refreshTokenModel';
-import { IUserFromDB } from '../db/userModel';
+import { IUserFromDB } from '../../../interfaces/user';
 
 interface ICreatedTokens {
 	accessToken: string,
@@ -12,7 +12,7 @@ const createTokens = async (user: IUserFromDB): Promise<ICreatedTokens> => {
 	const jwtBody = {
 		user_id: user._id,
 		user_role: user.role,
-		profileCreatedBy: user.profileCreatedBy,
+		isAuthUpprove: user.isAuthUpprove,
 		user_firstName: user.firstName,
 		user_lastName: user.lastName,
 	}

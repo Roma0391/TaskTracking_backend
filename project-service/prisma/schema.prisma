@@ -14,89 +14,67 @@ datasource db {
 }
   
 model Profile {
-  id                  String   @id @default(cuid())
-  userId              String   @unique
-  firstName           String
-  lastName            String
-  email               String   @unique
-  role                String   @default("user")
-  permisionStatus     String
-  createdById         String
-  createdProjects     Project[] 
-  // memberOfProjects    UsersToProjects[]
-  memberOfProjects    Project[] @relation(name: "ProjectToMembers")
-  // candidatesOfProject CandidatesToProjects[]
-  candidatesOfProject Project[] @relation(name: "ProjectToCandidates")
-  tasks               Task[]
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
+  id                    String   @id @default(cuid())
+  userId                String   
+  firstName             String
+  lastName              String
+  email                 String   
+  role                  String   @default("user")
+  permisionStatus       String
+  createdById           String
+  createdProjects       Project[]
+  projectId             String?
+  project               Project? @relation(name: "ProjectToMembers", fields: [projectId], references: [id], onDelete: Cascade)
+  tasks                 Task[]
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+}
+
+model Candidate {
+  id                    String   @id @default(cuid())
+  userId                String   
+  firstName             String
+  lastName              String
+  email                 String   
+  createdById           String
+  projectId             String
+  project               Project @relation(fields: [projectId], references: [id])
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
 }
 
 model Project {
-  id                  String   @id @default(cuid())
-  name                String  @unique
-  description         String?
-  creatorId           String 
-  createdBy           Profile  @relation(fields: [creatorId], references: [userId], onDelete: Cascade)
-  // members             UsersToProjects[] 
-  members             Profile[] @relation(name: "ProjectToMembers")
-  candidates          Profile[] @relation(name: "ProjectToCandidates")
-  // candidates          CandidatesToProjects[]
-  tasks               Task[]
-  status              String   @default("active")
-  priorityLavel       String   
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
+  id                    String   @id @default(cuid()) 
+  name                  String  @unique
+  description           String
+  createdById           String 
+  createdBy             Profile  @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  members               Profile[] @relation(name: "ProjectToMembers")
+  candidates            Candidate[]
+  // candidates            String[] 
+  tasks                 Task[]
+  status                String 
+  priorityLevel         String   
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
 }
-
-// model UsersToProjects {
-//   project     Project @relation(fields: [projectId], references: [id])
-//   projectId   String // relation scalar field (used in the `@relation` attribute above)
-//   profile     Profile @relation(fields: [profileId], references: [userId])
-//   profileId   String // relation scalar field (used in the `@relation` attribute above)
-//   createdAt   DateTime @default(now())
-//   updatedAt   DateTime @updatedAt
-
-//   @@id([projectId, profileId])
-// }
-
-// model CandidatesToProjects {
-//   project     Project @relation(fields: [projectId], references: [id])
-//   projectId   String // relation scalar field (used in the `@relation` attribute above)
-//   profile     Profile @relation(fields: [profileId], references: [userId])
-//   profileId   String // relation scalar field (used in the `@relation` attribute above)
-//   createdAt   DateTime @default(now())
-//   updatedAt   DateTime @updatedAt
-
-//   @@id([projectId, profileId])
-// }
 
 model Task {
-  id          String   @id @default(cuid())
-  title       String
-  description String?
-  projectId   String
-  project     Project  @relation(fields: [projectId], references: [id])
-  deadline    DateTime
-  toDoProfileId String?
-  toDoProfile Profile? @relation( fields: [toDoProfileId], references: [id])
-  subTasks   Task[] @relation("SubTasks")
-  parentTask  Task?    @relation(name: "SubTasks", fields: [parentTaskId], references: [id])
-  parentTaskId String? // optional field to link to a parent
-  progress    Int      @default(0)
-  status      String   @default("todo") // TODO, IN_PROGRESS, DONE
-  priorityLevel String @default("medium") // LOW, MEDIUM, HIGH 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt 
+  id                    String   @id @default(cuid())
+  title                 String  @unique
+  description           String?
+  projectId             String
+  project               Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  deadline              DateTime
+  toDoProfileId         String?
+  toDoProfile           Profile? @relation( fields: [toDoProfileId], references: [id])
+  subTasks              Task[] @relation("SubTasks")
+  parentTaskId          String? 
+  parentTask            Task?    @relation(name: "SubTasks", fields: [parentTaskId], references: [id], onDelete: Cascade)
+  progress              Int      @default(0)
+  status                String 
+  priorityLevel         String 
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt 
   @@index([projectId])
 }
-
-// model UsersToTasks {
-//   task        Task @relation(fields: [taskId], references: [id])
-//   taskId      String // relation scalar field (used in the `@relation` attribute above)
-//   profile     Profile @relation(fields: [profileId], references: [id])
-//   profileId   String // relation scalar field (used in the `@relation` attribute above)
-//   createdAt   DateTime @default(now())
-//   updatedAt   DateTime @updatedAt
-//   @@id([taskId, profileId])
-// }

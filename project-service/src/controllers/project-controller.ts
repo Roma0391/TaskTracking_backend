@@ -1,20 +1,35 @@
 import { Request, Response } from 'express';
 import { createProjectValidation } from '../utils/validation';
 import {PrismaClient} from '@prisma/client';
+import Redis from 'ioredis';
+import { ProjectStatus } from '../../../interfaces/project';
+import { Roles } from '../../../interfaces/user';
+import { PROJECT_FLAGS } from '../../../interfaces/flags';
 const prisma = new PrismaClient();
+const redis = new Redis(process.env.REDIS_URL as string);
 
-const createProject = async (req: Request, res: Response) => {
+export const createProject = async (req: Request, res: Response) => {
 	try {
-		const createdBy = req.headers['x-user-id'] as string;
+		const adminId = req.headers['x-user-id'] as string; 
+		const adminProfile = await prisma.profile.findFirst({where: {userId: adminId}})
+
+		if(!adminProfile) {
+				res.status(401).json({ 
+				success: false,
+			})
+			return;
+		}
 		const parsedData = createProjectValidation(req.body);
+		
 		await prisma.project.create({
 			data: {
 				...parsedData,
-				createdBy: {
-					connect: {userId: createdBy}
+				status: ProjectStatus.ACTIVE,
+				createdBy: { 
+					connect: {id: adminProfile.id}
 				},
 			}
-		})
+		});
 		res.status(201).json({
 			success: true,
 		})
@@ -22,11 +37,10 @@ const createProject = async (req: Request, res: Response) => {
 		res.status(500).json({
 			success: false,
 		})
-		return;
 	}
 }
 
-const getAllProjects = async (req: Request, res: Response) => {
+export const getAllProjects = async (req: Request, res: Response) => {
 	try {
 		const userId = req.headers['x-user-id'] as string;
 		const userRole = req.headers['x-user-role'] as string;
@@ -34,10 +48,9 @@ const getAllProjects = async (req: Request, res: Response) => {
 		const page = +(req.query.page || 1);
 		const limit = +(req.query.limit || 7);
 		const startIndex = (page - 1) * limit;
-
 		let findQuery;
-		if(userRole === 'admin') {
-			const userProfile = await prisma.profile.findUnique({
+		if(userRole === Roles.ADMIN) {
+			const userProfile = await prisma.profile.findFirst({
 				where: {userId}
 			})
 			if(!userProfile) {
@@ -51,7 +64,7 @@ const getAllProjects = async (req: Request, res: Response) => {
 			}
 		} else {
 			switch(flag) {
-			case 'my':
+			case PROJECT_FLAGS.MY:
 				findQuery = {
 					members: {
 						some: {
@@ -60,7 +73,7 @@ const getAllProjects = async (req: Request, res: Response) => {
 					}
 				};
 				break;
-			case 'join':
+			case PROJECT_FLAGS.JOIN:
 				findQuery = {
 					candidates: {
 						none: {
@@ -74,7 +87,7 @@ const getAllProjects = async (req: Request, res: Response) => {
 					}
 				};
 				break;
-			case 'pending':
+			case PROJECT_FLAGS.PENDIDNG:
 				findQuery = {
 					candidates: {
 						some: {
@@ -88,8 +101,8 @@ const getAllProjects = async (req: Request, res: Response) => {
 		const data = await prisma.project.findMany({
 			where: findQuery,
 			include: {
-				members: flag === 'my',
-				candidates: flag !== 'my',
+				members: flag === PROJECT_FLAGS.MY,
+				candidates: flag !== PROJECT_FLAGS.MY,
 				createdBy: true,
 				tasks: {
 					include: {
@@ -121,18 +134,22 @@ const getAllProjects = async (req: Request, res: Response) => {
 	}
 }
 
-const getProjectById = async (req: Request, res: Response) => {
+export const getProjectById = async (req: Request, res: Response) => {
 	try {
-
-		const {projectId} = req.params;
+		const {projectId} = req.params; 
 		const project = await prisma.project.findUnique({
 			where: {
 				id: projectId
 			},
 			include: {
 				members: true,
-				tasks: true,
-				createdBy: true
+				tasks: {
+					include: {
+						toDoProfile: true,
+					}
+				},
+				createdBy: true,
+				candidates: true,
 			}
 		})
 		if(!project) {
@@ -141,7 +158,6 @@ const getProjectById = async (req: Request, res: Response) => {
 			});
 			return;
 		}
-
 		const result = {
 			data: [project],
 			curentPage: 1,
@@ -160,47 +176,49 @@ const getProjectById = async (req: Request, res: Response) => {
 	}
 }
 
-const joinProject = async (req: Request, res: Response) => {
+export const joinProject = async (req: Request, res: Response) => {
 	try {
 		const userId = req.headers['x-user-id'] as string;
 		const {projectId} = req.params;
-		const userProfile = await prisma.profile.findUnique({
-			where: {userId}
-		})
-		if(!userProfile) {
-				res.status(404).json({
-				success: false,
-			})
-			return;
-		}
-		
-		await prisma.project.update({
-			where: {
-				id: projectId
-			},
-			data: {
-				candidates: {
-					connect: userProfile
-				},
+		const pub = redis.duplicate();
+		const sub = redis.duplicate();
+		const project = await prisma.project.findUnique({where: {id: projectId}})
+		pub.publish('user.join_request', JSON.stringify({userId}));
+		sub.subscribe('user.join_response');
+		sub.on('message', async (channel: string, message: string) => {
+			if(channel === 'user.join_response') {
+				const data = JSON.parse(message)
+				await prisma.candidate.create({
+					data: {
+						...data,
+						createdById: project?.createdById,
+						project: {
+							connect: {
+								id: projectId
+							}
+						}
+					}
+				});
+				res.status(201).json({
+					success: true,
+				})
+				return;
 			}
 		})
-		res.status(201).json({
-			success: true,
-		})
+		
 	}catch (error) {
 		res.status(500).json({
 			success: false,
 		})
-		return;
 	}
 }
 
-const quitProject = async (req: Request, res: Response) => {
+export const quitProject = async (req: Request, res: Response) => {
 	try {
 		const userId = req.headers['x-user-id'] as string;
 		const {projectId} = req.params;
-		const userProfile = await prisma.profile.findUnique({
-			where: {userId}
+		const userProfile = await prisma.profile.findFirst({
+			where: {AND: [{userId}, {projectId}]}
 		})
 		if(!userProfile) {
 				res.status(404).json({
@@ -216,7 +234,10 @@ const quitProject = async (req: Request, res: Response) => {
 				members: {
 					disconnect: userProfile
 				},
-			}
+			},
+		})
+		await prisma.profile.delete({
+			where: {id: userProfile.id}
 		})
 		res.status(201).json({
 			success: true,
@@ -225,13 +246,11 @@ const quitProject = async (req: Request, res: Response) => {
 		res.status(500).json({
 			success: false,
 		})
-		return;
 	}
 }
 
-const deleteProject = async (req: Request, res: Response) => {
+export const deleteProject = async (req: Request, res: Response) => {
 	try {
-		const userId = req.headers['x-user-id'] as string;
 		const {projectId} = req.params;
 		await prisma.project.delete({
 			where: {
@@ -249,52 +268,12 @@ const deleteProject = async (req: Request, res: Response) => {
 	}
 }
 
-const addUserToProject = async (req: Request, res: Response) => {
-	try {
-		const adminId = req.headers['x-user-id'] as string;
-		const {projectId} = req.params;
-		const {userId} = req.body;
-
-		const userProfile = await prisma.profile.findUnique({
-			where: {id: userId}
-		})
-		if(!userProfile) {
-				res.status(404).json({
-				success: false,
-			})
-			return;
-		}
-		
-		await prisma.project.update({
-			where: {
-				id: projectId
-			},
-			data: { 
-				candidates: {
-					disconnect: userProfile
-				},
-				members: {
-					connect: userProfile
-				},
-			}
-		})
-		res.status(201).json({
-			success: true,
-		})
-	}catch (error) {
-		res.status(500).json({
-			success: false,
-		})
-		return;
-	}
-}
-
-const removeProfilefromProject = async (req: Request, res: Response) => {
+export const removeProfilefromProject = async (req: Request, res: Response) => {
 	try {
 		const {projectId} = req.params;
 		const {profileId} = req.body;
 
-		const userProfile = await prisma.profile.findUnique({
+		const userProfile = await prisma.profile.findFirst({
 			where: {id: profileId}
 		})
 		if(!userProfile) {
@@ -313,18 +292,20 @@ const removeProfilefromProject = async (req: Request, res: Response) => {
 				}
 			}
 		})
+		await prisma.profile.delete({
+			where: {id: profileId}
+		})
 		res.status(200).json({
 			success: true,
 		})
 	}catch (error) {
 		res.status(500).json({
 			success: false,
-		})
-		return;
+		}) 
 	}
 }
 
-const updateProjectOption = async (req: Request, res: Response) => {
+export const updateProjectOption = async (req: Request, res: Response) => {
 	try {
 		const {projectId} = req.params;
 		const data = req.body;
@@ -333,7 +314,7 @@ const updateProjectOption = async (req: Request, res: Response) => {
 			where: {
 				id: projectId
 			},
-			data: data
+			data: data,
 		})
 		res.status(200).json({
 			success: true,
@@ -345,5 +326,3 @@ const updateProjectOption = async (req: Request, res: Response) => {
 		return;
 	}
 }
-
-export {createProject, getAllProjects, joinProject, addUserToProject, removeProfilefromProject, quitProject, deleteProject, getProjectById, updateProjectOption}
