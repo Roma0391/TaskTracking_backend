@@ -5,6 +5,8 @@ import projectRoutes from './routes/project-route';
 import { redisHandlers } from './redis/handlers';
 
 const redisClient = new Redis(process.env.REDIS_URL as string);
+// const redisClient = new Redis("redis://redis:6379");
+
 dotenv.config();
 const app = express();
 app.use(express.json());
@@ -21,7 +23,6 @@ const startServer = () => {
         throw new Error('Redis subscrib error occured')
       } else {
         console.log(`Subscribed successfully to ${count} channels!`);
-        
       }
     });
     redisClient.on('message', (channel: string, message: string) => redisHandlers(channel, message));

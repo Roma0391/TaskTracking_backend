@@ -1,0 +1,14 @@
+{
+  "compilerOptions": {
+    "target": "ES2022", // Or a later version like "ES2023" for modern Node.js environments
+    "module": "commonjs", // Or "node16", "nodenext" for ES Modules
+    "outDir": "./dist", // Output directory for compiled JavaScript files
+    "rootDir": "./src", // Root directory of your TypeScript source files
+    "strict": true, // Enable all strict type-checking options
+    "esModuleInterop": true, // Enables default imports for CommonJS modules
+    "skipLibCheck": true, // Skip type checking of declaration files
+    "forceConsistentCasingInFileNames": true // Ensure consistent casing for file names
+  },
+  "include": ["src/**/*"], // Include all files within the 'src' directory
+  "exclude": ["node_modules"] // Exclude the 'node_modules' directory from compilation
+}

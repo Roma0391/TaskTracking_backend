@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { createProfileValidation } from '../utils/validation';
 import {PrismaClient} from '@prisma/client';
-import { Roles } from '../../../interfaces/user';
+import { Roles } from '../interfaces/user';
 const prisma = new PrismaClient();
 
 export const createProfile = async (req: Request, res: Response) => {
@@ -80,8 +80,6 @@ export const fetchMyProfile = async (req: Request, res: Response) => {
 export const getMembersByAdminId = async (req: Request, res: Response) => {
 	try {		
 		const adminId = req.headers['x-user-id'] as string;
-		console.log(adminId);
-		
 		if(!adminId) {
 			res.status(404).json({
 				success: false,

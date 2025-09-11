@@ -1,7 +1,7 @@
-import jwt, { JwtPayload } from 'jsonwebtoken';
+import jwt from 'jsonwebtoken';
 import {Request, Response, NextFunction} from 'express'
 
-interface IUserJWTData extends JwtPayload {
+interface IUserJWTData extends jwt.JwtPayload {
 	user_id: string,
 	user_role: string,
 	isAuthUpprove: string,

@@ -33,10 +33,17 @@ export const getCandidatesByAdminId = async (req: Request, res: Response) => {
 		const page = +(req.query.page || 1);
 		const limit = +(req.query.limit || 7);
 		const startIndex = (page - 1) * limit;
-
+		const adminProfile = await prisma.profile.findFirst({
+			where: {
+				id: adminId
+			},
+			select: {
+				id: true
+			}
+		})
 		const candidates = await prisma.candidate.findMany({
 			where: {
-				createdById: adminId
+				createdById: adminProfile?.id
 			},
 			include: {
 				project: true,

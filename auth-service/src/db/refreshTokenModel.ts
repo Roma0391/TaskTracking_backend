@@ -1,7 +1,7 @@
 import mongoose from 'mongoose';
-import { IUserFromDB } from '../../../interfaces/user';
+import { IUserFromDB } from '../interfaces/user';
 
-interface IRefreshToken {
+export interface IRefreshToken {
 	token: string,
 	user: IUserFromDB,
 	expiresAt: Date

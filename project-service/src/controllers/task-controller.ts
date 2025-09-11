@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { createSubtaskValidation, createTaskValidation } from '../utils/validation';
 import {PrismaClient} from '@prisma/client';
-import { TaskStatus } from '../../../interfaces/task';
+import { TaskStatus } from '../interfaces/task';
 const prisma = new PrismaClient();
 
 export const createTask = async (req: Request, res: Response) => {
@@ -47,11 +47,25 @@ export const createSubtask = async (req: Request, res: Response) => {
 			});
 			return;
 		}
+		const parentTask = await prisma.task.findUnique({
+			where: {id: parsedData.parentTaskId},
+			select: {subTasks: true},
+		});
+		if(!parentTask) {
+			res.status(400).json({
+				success: false,
+			});
+			return;
+		}
+		
+		const taskProgress = ((parentTask.subTasks.filter(subtask => subtask.status === TaskStatus.DONE).length) / (parentTask.subTasks.length + 2) * 100).toFixed(0);
+		
 		await prisma.task.update({
 			where: {
 				id: parsedData.parentTaskId,
 			},
 			data: {
+				progress: +taskProgress,
 				subTasks: {
 					create: {
 						title: parsedData.title,

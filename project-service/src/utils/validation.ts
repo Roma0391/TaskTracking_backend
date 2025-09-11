@@ -1,7 +1,7 @@
 import z from 'zod/v4';
-import { ProfilePermissions } from '../../../interfaces/profile';
-import { ProjectPriorityLevel } from '../../../interfaces/project';
-import { TaskPriorityLevel } from '../../../interfaces/task';
+import { ProfilePermissions } from '../interfaces/profile';
+import { ProjectPriorityLevel } from '../interfaces/project';
+import { TaskPriorityLevel } from '../interfaces/task';
 
 const CreateProfileSchema = z.object({
   userId: z.string().nonempty({ message: 'User ID cannot be empty' }),

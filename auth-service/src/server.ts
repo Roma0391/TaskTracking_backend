@@ -10,8 +10,8 @@ const app = express();
 const redisClient = new Redis(process.env.REDIS_URL as string);
 
 mongoose.connect(process.env.DATABASE_URL as string)
-.then(() => console.log('Database was connected successfuly'))
-.catch(e => 	console.log(`Feild to connect to db`));
+.then(() => console.log('Database was connected successfully'))
+.catch(e => 	console.log(e));
 
 app.use(express.json());
 

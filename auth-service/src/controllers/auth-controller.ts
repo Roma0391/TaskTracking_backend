@@ -1,26 +1,30 @@
-import { PROFILE_FLAGS } from './../../../../TaskTracking_frontend/src/interfaces/flags';
+import { PROFILE_FLAGS } from '../interfaces/flags';
 import { Request, Response } from 'express';
-import User from '../db/userModel';
+import UserModel, {IUserSchema} from '../db/userModel';
 import { loginValidation, logoutValidation, registerValidation } from '../utils/validation'
 import createTokens from '../utils/createTokens';
-import RefreshToken, { IRefreshTokenFromDb } from '../db/refreshTokenModel';
+import RefreshTokenModel, { IRefreshTokenFromDb, IRefreshToken } from '../db/refreshTokenModel';
 import Redis from 'ioredis'
-import { IDataResponce } from '../../../interfaces/apiResponcesTypes';
-import { IUserFromDB, Roles, Tokens } from '../../../interfaces/user';
+import { IUserFromDB, Roles } from '../interfaces/user';
+import { Model } from 'mongoose';
+
+const User = UserModel as Model<IUserSchema>;
+const RefreshToken = RefreshTokenModel as Model<IRefreshToken>
 
 const redisClient = new Redis(process.env.REDIS_URL as string);
-
 export const registerUser = async (req: Request, res: Response) => {
 	try{ 		
 		const parsedData = registerValidation(req.body);
 		const existingUser: IUserFromDB | null = await User.findOne({email: parsedData.email});
+
 		if(existingUser) {
 		    res.status(401).json({
 				success: false,
 			}) 
 			return;
 		} 
-		const newUser: IUserFromDB = await User.create(parsedData);
+		const newUser = await User.create(parsedData);
+
 		const {accessToken, refreshToken} = await createTokens(newUser);
 		if(newUser){
 			const result = {
@@ -48,14 +52,13 @@ export const loginUser = async (req: Request, res: Response) => {
 	try{
 		const parsedData = loginValidation(req.body);
 		const existedUser: IUserFromDB | null = await User.findOne({email: parsedData.email});
-		if(!existedUser) {
-			res.status(401).json({
+		if(existedUser === null || existedUser === undefined) {
+			res.status(404).json({
 				success: false,
 			})
 			return;
-		};
-		const isPasswordMatch: boolean = await existedUser.comparePassword(parsedData.password);
-
+		}
+		const isPasswordMatch: boolean = await existedUser.comparePassword!(parsedData.password);
 		if(!isPasswordMatch) {
 			res.status(401).json({
 				success: false,
@@ -193,6 +196,12 @@ export const upproveAuth = async (req: Request, res: Response) => {
 	try{
 		const {userId} = req.params;
 		const user = await User.findById(userId);
+		if(!user) {
+			res.status(404).json({
+				success: false,
+			})
+			return
+		}
 		user.isAuthUpprove = true;
 		await user.save();
 		res.status(201).json({

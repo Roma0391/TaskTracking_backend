@@ -2,9 +2,9 @@ import { Request, Response } from 'express';
 import { createProjectValidation } from '../utils/validation';
 import {PrismaClient} from '@prisma/client';
 import Redis from 'ioredis';
-import { ProjectStatus } from '../../../interfaces/project';
-import { Roles } from '../../../interfaces/user';
-import { PROJECT_FLAGS } from '../../../interfaces/flags';
+import { ProjectStatus } from '../interfaces/project';
+import { Roles } from '../interfaces/user';
+import { PROJECT_FLAGS } from '../interfaces/flags';
 const prisma = new PrismaClient();
 const redis = new Redis(process.env.REDIS_URL as string);
 
@@ -202,7 +202,6 @@ export const joinProject = async (req: Request, res: Response) => {
 				res.status(201).json({
 					success: true,
 				})
-				return;
 			}
 		})
 		
@@ -221,7 +220,7 @@ export const quitProject = async (req: Request, res: Response) => {
 			where: {AND: [{userId}, {projectId}]}
 		})
 		if(!userProfile) {
-				res.status(404).json({
+			res.status(404).json({
 				success: false,
 			})
 			return;
@@ -255,8 +254,8 @@ export const deleteProject = async (req: Request, res: Response) => {
 		await prisma.project.delete({
 			where: {
 				id: projectId
-			},
-		})
+			}
+		});
 		res.status(201).json({
 			success: true,
 		})

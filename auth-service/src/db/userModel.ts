@@ -1,8 +1,17 @@
-import mongoose from 'mongoose';
+import mongoose, { Schema } from 'mongoose';
 import argon2 from 'argon2';
-import { IUser } from '../../../interfaces/user';
+import { Roles } from '../interfaces/user';
 
-const UserSchema = new mongoose.Schema({
+export interface IUserSchema extends mongoose.Document {
+	firstName: string;
+	lastName: string;
+	email: string;
+	password: string;
+	role: Roles;
+	isAuthUpprove: boolean;
+}
+
+const UserSchema = new Schema<IUserSchema>({
 	firstName: {
 		type: String,
 		required: true,
@@ -38,7 +47,7 @@ const UserSchema = new mongoose.Schema({
 UserSchema.pre('save', async function(next) {
 	if(this && this.isModified('password')){
 		try{
-			this.password = await argon2.hash(this.password);
+			this.password = await argon2.hash(this.password as string);
 			next();
 		}catch(error){
 			throw error;
@@ -52,6 +61,6 @@ UserSchema.methods.comparePassword = async function( password: string): Promise<
 
 UserSchema.index({name: 'text'});
 
-const User = mongoose.models.User || mongoose.model('User', UserSchema);
+const User = mongoose.models.User || mongoose.model<IUserSchema>('User', UserSchema);
 
 export default User;

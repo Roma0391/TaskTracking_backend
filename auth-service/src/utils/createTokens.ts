@@ -1,12 +1,15 @@
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
-import RefreshToken from '../db/refreshTokenModel';
-import { IUserFromDB } from '../../../interfaces/user';
+import RefreshTokenModel from '../db/refreshTokenModel';
+import { Model } from 'mongoose';
+import { IUserFromDB } from '../interfaces/user';
 
 interface ICreatedTokens {
 	accessToken: string,
 	refreshToken: string
 }
+
+const RefreshToken = RefreshTokenModel as Model<ICreatedTokens>
 
 const createTokens = async (user: IUserFromDB): Promise<ICreatedTokens> => {
 	const jwtBody = {

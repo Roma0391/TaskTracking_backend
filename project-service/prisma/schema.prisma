@@ -38,7 +38,7 @@ model Candidate {
   email                 String   
   createdById           String
   projectId             String
-  project               Project @relation(fields: [projectId], references: [id])
+  project               Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
 }
@@ -48,7 +48,7 @@ model Project {
   name                  String  @unique
   description           String
   createdById           String 
-  createdBy             Profile  @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  createdBy             Profile  @relation(fields: [createdById], references: [id])
   members               Profile[] @relation(name: "ProjectToMembers")
   candidates            Candidate[]
   // candidates            String[] 
@@ -67,7 +67,7 @@ model Task {
   project               Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
   deadline              DateTime
   toDoProfileId         String?
-  toDoProfile           Profile? @relation( fields: [toDoProfileId], references: [id])
+  toDoProfile           Profile? @relation( fields: [toDoProfileId], references: [id], onDelete: SetNull)
   subTasks              Task[] @relation("SubTasks")
   parentTaskId          String? 
   parentTask            Task?    @relation(name: "SubTasks", fields: [parentTaskId], references: [id], onDelete: Cascade)
