@@ -1,3 +1,9 @@
-node_modules
-dist
-.env
+/api-geteway/node_modules
+/api-geteway/dist
+/api-geteway/.env
+/auth-service/node_modules
+/auth-service/dist
+/auth-service/.env
+/project-service/node_modules
+/project-service/dist
+/project-service/.env
