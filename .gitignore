@@ -1,9 +1,7 @@
-/api-geteway/node_modules
-/api-geteway/dist
-/api-geteway/.env
-/auth-service/node_modules
-/auth-service/dist
-/auth-service/.env
-/project-service/node_modules
-/project-service/dist
-/project-service/.env
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# dependencies
+node_modules
+dist
+.env
+
